@@ -7,13 +7,13 @@ from ipywidgets import interact
 from ipywidgets import widgets, Checkbox, fixed
 import riemann_tools
 from collections import namedtuple
-warnings.filterwarnings(“ignore”)
+warnings.filterwarnings("ignore")
 
-conserved_variables = (‘Depth’, ‘Momentum’)
-primitive_variables = (‘Depth’, ‘Velocity’)
+conserved_variables = ('Depth', 'Momentum')
+primitive_variables = ('Depth', 'Velocity')
 left, middle, right = (0, 1, 2)
-State = namedtuple(‘State’, conserved_variables)
-Primitive_State = namedtuple(‘PrimState’, primitive_variables)
+State = namedtuple('State', conserved_variables)
+Primitive_State = namedtuple('PrimState', primitive_variables)
 
 def pospart(x):
     return np.maximum(1.e-15,x)
@@ -34,12 +34,13 @@ def cons_to_prim(q):
 
 def exact_riemann_solution(q_l, q_r, grav=1., force_waves=None,
                            primitive_inputs=False, include_contact=False):
-    “””Return the exact solution to the Riemann problem with initial states q_l, q_r.
+    """Return the exact solution to the Riemann problem with initial states q_l, q_r.
        The solution is given in terms of a list of states, a list of speeds (each of which
        may be a pair in case of a rarefaction fan), and a function reval(xi) that gives the
        solution at a point xi=x/t.
+
        The input and output vectors are the conserved quantities.
-    “””
+    """
     if primitive_inputs:
         h_l, u_l = q_l
         h_r, u_r = q_r
@@ -68,20 +69,20 @@ def exact_riemann_solution(q_l, q_r, grav=1., force_waves=None,
 
     # Check whether the 1-wave is a shock or rarefaction
     def phi_l(h):
-        if (h>=h_l and force_waves!=‘raref’) or force_waves==‘shock’:
+        if (h>=h_l and force_waves!='raref') or force_waves=='shock':
             return hugoniot_locus_1(h)
         else:
             return integral_curve_1(h)
 
     # Check whether the 2-wave is a shock or rarefaction
     def phi_r(h):
-        if (h>=h_r and force_waves!=‘raref’) or force_waves==‘shock’:
+        if (h>=h_r and force_waves!='raref') or force_waves=='shock':
             return hugoniot_locus_2(h)
         else:
             return integral_curve_2(h)
 
     ws = np.zeros(4)
-    wave_types = [‘’, ‘’]
+    wave_types = ['', '']
 
     dry_velocity_l = u_l + 2*np.sqrt(grav*h_l)
     dry_velocity_r = u_r - 2*np.sqrt(grav*h_r)
@@ -128,29 +129,29 @@ def exact_riemann_solution(q_l, q_r, grav=1., force_waves=None,
             h_m, _, ier, msg = fsolve(phi, guess,full_output=True,factor=0.1,xtol=1.e-10)
             # This should not happen:
             if ier!=1:
-                print(‘Warning: fsolve did not converge.’)
+                print('Warning: fsolve did not converge.')
                 print(msg)
 
         u_m = phi_l(h_m)
         hu_m = u_m * h_m
 
         # Find shock and rarefaction speeds
-        if (h_m>h_l and force_waves!=‘raref’) or force_waves==‘shock’:
-            wave_types[0] = ‘shock’
+        if (h_m>h_l and force_waves!='raref') or force_waves=='shock':
+            wave_types[0] = 'shock'
             ws[0] = (hu_l - hu_m) / (h_l - h_m)
             ws[1] = ws[0]
         else:
-            wave_types[0] = ‘raref’
+            wave_types[0] = 'raref'
             c_m = np.sqrt(grav * h_m)
             ws[0] = u_l - c_l
             ws[1] = u_m - c_m
 
-        if (h_m>h_r and force_waves!=‘raref’) or force_waves==‘shock’:
-            wave_types[1] = ‘shock’
+        if (h_m>h_r and force_waves!='raref') or force_waves=='shock':
+            wave_types[1] = 'shock'
             ws[2] = (hu_r - hu_m) / (h_r - h_m)
             ws[3] = ws[2]
         else:
-            wave_types[0] = ‘raref’
+            wave_types[0] = 'raref'
             c_m = np.sqrt(grav * h_m)
             ws[2] = u_m + c_m
             ws[3] = u_r + c_r
@@ -174,11 +175,11 @@ def exact_riemann_solution(q_l, q_r, grav=1., force_waves=None,
 
     states = np.column_stack([q_l,q_m,q_r])
     speeds = [[], []]
-    if wave_types[0] is ‘shock’:
+    if wave_types[0] is 'shock':
         speeds[0] = ws[0]
     else:
         speeds[0] = (ws[0],ws[1])
-    if wave_types[1] is ‘shock’:
+    if wave_types[1] is 'shock':
         speeds[1] = ws[2]
     else:
         speeds[1] = (ws[2],ws[3])
@@ -187,14 +188,14 @@ def exact_riemann_solution(q_l, q_r, grav=1., force_waves=None,
         states = np.column_stack([q_l,q_m,q_m,q_r])
         um = q_m[1]/q_m[0]
         speeds = [speeds[0],um,speeds[1]]
-        wave_types = [wave_types[0],’contact’,wave_types[1]]
+        wave_types = [wave_types[0],'contact',wave_types[1]]
         
     def reval(xi):
-        “””
+        """
         Function that evaluates the Riemann solution for arbitrary xi = x/t.
         Sets the solution to nan in an over-turning rarefaction wave
         for illustration purposes of this non-physical solution.
-        “””
+        """
         rar1 = raref1(xi)
         rar2 = raref2(xi)
         h_out = (xi<=ws[0])*h_l + \
@@ -217,120 +218,120 @@ def exact_riemann_solution(q_l, q_r, grav=1., force_waves=None,
 
     return states, speeds, reval, wave_types
 
-def integral_curve(h, hstar, hustar, wave_family, g=1., y_axis=‘u’):
-    “””
+def integral_curve(h, hstar, hustar, wave_family, g=1., y_axis='u'):
+    """
     Return u or hu as a function of h for integral curves through
     (hstar, hustar).
-    “””
+    """
     ustar = hustar / pospart(hstar)
     if wave_family == 1:
-        if y_axis == ‘u’:
+        if y_axis == 'u':
             return ustar + 2*(np.sqrt(g*hstar) - np.sqrt(g*h))
         else:
             return h*ustar + 2*h*(np.sqrt(g*hstar) - np.sqrt(g*h))
     else:
-        if y_axis == ‘u’:
+        if y_axis == 'u':
             return ustar - 2*(np.sqrt(g*hstar) - np.sqrt(g*h))
         else:
             return h*ustar - 2*h*(np.sqrt(g*hstar) - np.sqrt(g*h))
 
 
-def hugoniot_locus(h, hstar, hustar, wave_family, g=1., y_axis=‘u’):
-    “””
+def hugoniot_locus(h, hstar, hustar, wave_family, g=1., y_axis='u'):
+    """
     Return u or hu as a function of h for the Hugoniot locus through
     (hstar, hustar).
-    “””
+    """
     ustar = hustar / hstar
     alpha = h - hstar
     d = np.sqrt(g*hstar*(1 + alpha/hstar)*(1 + alpha/(2*hstar)))
     if wave_family == 1:
-        if y_axis == ‘u’:
+        if y_axis == 'u':
             return (hustar + alpha*(ustar - d))/pospart(h)
         else:
             return hustar + alpha*(ustar - d)
     else:
-        if y_axis == ‘u’:
+        if y_axis == 'u':
             return (hustar + alpha*(ustar + d))/pospart(h)
         else:
             return hustar + alpha*(ustar + d)
 
 
-def phase_plane_curves(hstar, hustar, state, g=1., wave_family=‘both’, y_axis=‘u’, ax=None,
+def phase_plane_curves(hstar, hustar, state, g=1., wave_family='both', y_axis='u', ax=None,
                        plot_unphysical=False):
-    “””
+    """
     Plot the curves of points in the h - u or h-hu phase plane that can be
     connected to (hstar,hustar).
-    state = ‘qleft’ or ‘qright’ indicates whether the specified state is ql or qr.
-    wave_family = 1, 2, or ‘both’ indicates whether 1-waves or 2-waves should be plotted.
+    state = 'qleft' or 'qright' indicates whether the specified state is ql or qr.
+    wave_family = 1, 2, or 'both' indicates whether 1-waves or 2-waves should be plotted.
     Colors in the plots indicate whether the states can be connected via a shock or rarefaction.
-    “””
+    """
     if ax is None:
         fig, ax = plt.subplots()
 
     h = np.linspace(0, hstar, 200)
 
-    if wave_family in [1,’both’]:
-        if state == ‘qleft’ or plot_unphysical:
+    if wave_family in [1,'both']:
+        if state == 'qleft' or plot_unphysical:
             u = integral_curve(h, hstar, hustar, 1, g, y_axis=y_axis)
-            ax.plot(h,u,’b’, label=‘1-rarefactions’)
-        if state == ‘qright’ or plot_unphysical:
+            ax.plot(h,u,'b', label='1-rarefactions')
+        if state == 'qright' or plot_unphysical:
             u = hugoniot_locus(h, hstar, hustar, 1, g, y_axis=y_axis)
-            ax.plot(h,u,’—r’, label=‘1-shocks’)
+            ax.plot(h,u,'--r', label='1-shocks')
 
-    if wave_family in [2,’both’]:
-        if state == ‘qleft’ or plot_unphysical:
+    if wave_family in [2,'both']:
+        if state == 'qleft' or plot_unphysical:
             u = hugoniot_locus(h, hstar, hustar, 2, g, y_axis=y_axis)
-            ax.plot(h,u,’—r’, label=‘2-shocks’)
-        if state == ‘qright’ or plot_unphysical:
+            ax.plot(h,u,'--r', label='2-shocks')
+        if state == 'qright' or plot_unphysical:
             u = integral_curve(h, hstar, hustar, 2, g, y_axis=y_axis)
-            ax.plot(h,u,’b’, label=‘2-rarefactions’)
+            ax.plot(h,u,'b', label='2-rarefactions')
 
     h = np.linspace(hstar, 3, 200)
 
-    if wave_family in [1,’both’]:
-        if state == ‘qright’ or plot_unphysical:
+    if wave_family in [1,'both']:
+        if state == 'qright' or plot_unphysical:
             u = integral_curve(h, hstar, hustar, 1, g, y_axis=y_axis)
-            ax.plot(h,u,’—b’, label=‘1-rarefactions’)
-        if state == ‘qleft’ or plot_unphysical:
+            ax.plot(h,u,'--b', label='1-rarefactions')
+        if state == 'qleft' or plot_unphysical:
             u = hugoniot_locus(h, hstar, hustar, 1, g, y_axis=y_axis)
-            ax.plot(h,u,’r’, label=‘1-shocks’)
+            ax.plot(h,u,'r', label='1-shocks')
 
-    if wave_family in [2,’both’]:
-        if state == ‘qright’ or plot_unphysical:
+    if wave_family in [2,'both']:
+        if state == 'qright' or plot_unphysical:
             u = hugoniot_locus(h, hstar, hustar, 2, g, y_axis=y_axis)
-            ax.plot(h,u,’r’, label=‘2-shocks’)
-        if state == ‘qleft’ or plot_unphysical:
+            ax.plot(h,u,'r', label='2-shocks')
+        if state == 'qleft' or plot_unphysical:
             u = integral_curve(h, hstar, hustar, 2, g, y_axis=y_axis)
-            ax.plot(h,u,’—b’, label=‘2-rarefactions’)
+            ax.plot(h,u,'--b', label='2-rarefactions')
 
     # plot and label the point (hstar, hustar)
-    ax.set_xlabel(‘Depth (h)’)
-    if y_axis == ‘u’:
+    ax.set_xlabel('Depth (h)')
+    if y_axis == 'u':
         ustar = hustar/hstar
-        ax.set_ylabel(‘Velocity (u)’)
+        ax.set_ylabel('Velocity (u)')
     else:
         ustar = hustar  # Fake it
-        ax.set_ylabel(‘Momentum (hu)’)
-    if state == ‘qleft’:
-        ax.plot([hstar],[ustar],’k<‘,markersize=6)
-    elif state == ‘qright’:
-        ax.plot([hstar],[ustar],’k>’,markersize=6)
-    #ax.plot([hstar],[ustar],’ko’,markersize=5) #old way
+        ax.set_ylabel('Momentum (hu)')
+    if state == 'qleft':
+        ax.plot([hstar],[ustar],'k<',markersize=6)
+    elif state == 'qright':
+        ax.plot([hstar],[ustar],'k>',markersize=6)
+    #ax.plot([hstar],[ustar],'ko',markersize=5) #old way
     ax.text(hstar + 0.1, ustar - 0.2, state, fontsize=13)
     
 
 
 def make_axes_and_label(x1=-.5, x2=6., y1=-2.5, y2=2.5):
-    plt.plot([x1,x2],[0,0],’k’)
-    plt.plot([0,0],[y1,y2],’k’)
+    plt.plot([x1,x2],[0,0],'k')
+    plt.plot([0,0],[y1,y2],'k')
     plt.axis([x1,x2,y1,y2])
     plt.legend()
-    plt.xlabel(“h = depth”,fontsize=15)
-    plt.ylabel(“hu = momentum”,fontsize=15)
+    plt.xlabel("h = depth",fontsize=15)
+    plt.ylabel("hu = momentum",fontsize=15)
 
-def phase_plane_plot(q_l, q_r, g=1., ax=None, force_waves=None, y_axis=‘u’, 
-                     approx_states=None, hmin=0, color=‘g’, include_contact=False):
-    r”””Plot the Hugoniot loci or integral curves in the h-u or h-hu plane.”””
+def phase_plane_plot(q_l, q_r, g=1., ax=None, force_waves=None, y_axis='u', 
+                     approx_states=None, hmin=0, color='g', include_contact=False):
+    r"""Plot the Hugoniot loci or integral curves in the h-u or h-hu plane."""
     
     import matplotlib.lines as mlines
 
@@ -343,7 +344,7 @@ def phase_plane_plot(q_l, q_r, g=1., ax=None, force_waves=None, y_axis=‘u’,
     if ax is None:
         fig, ax = plt.subplots()
     x = states[0,:]
-    if y_axis == ‘hu’:
+    if y_axis == 'hu':
         y = states[1,:]
     else:
         y = states[1,:]/pospart(states[0,:])
@@ -359,66 +360,66 @@ def phase_plane_plot(q_l, q_r, g=1., ax=None, force_waves=None, y_axis=‘u’,
     ymax = max(abs(y))
     ax.set_xlim(hmin, xmax + 0.5*dx)
     ax.set_ylim(-1.5*ymax, 1.5*ymax)
-    ax.set_xlabel(‘Depth (h)’)
-    if y_axis == ‘u’:
-        ax.set_ylabel(‘Velocity (u)’)
+    ax.set_xlabel('Depth (h)')
+    if y_axis == 'u':
+        ax.set_ylabel('Velocity (u)')
     else:
-        ax.set_ylabel(‘Momentum (hu)’)
+        ax.set_ylabel('Momentum (hu)')
 
     # Plot curves
     h_l = states[0,left]
     h1 = np.linspace(1.e-2,h_l)
     h2 = np.linspace(h_l,xmax+0.5*dx)
-    if wave_types[0] == ‘shock’:
+    if wave_types[0] == 'shock':
         hu1 = hugoniot_locus(h1, h_l, states[1,left], wave_family=1, g=g, y_axis=y_axis)
         hu2 = hugoniot_locus(h2, h_l, states[1,left], wave_family=1, g=g, y_axis=y_axis)
-        ax.plot(h1,hu1,’—r’, label=‘Hugoniot locus (unphysical)’)
-        ax.plot(h2,hu2,’r’, label=‘Hugoniot locus (physical)’)
+        ax.plot(h1,hu1,'--r', label='Hugoniot locus (unphysical)')
+        ax.plot(h2,hu2,'r', label='Hugoniot locus (physical)')
     else:
         hu1 = integral_curve(h1, h_l, states[1,left], wave_family=1, g=g, y_axis=y_axis)
         hu2 = integral_curve(h2, h_l, states[1,left], wave_family=1, g=g, y_axis=y_axis)
-        ax.plot(h1,hu1,’b’, label=‘Integral curve (physical)’)
-        ax.plot(h2,hu2,’—b’, label=‘Integral curve (unphysical)’)
+        ax.plot(h1,hu1,'b', label='Integral curve (physical)')
+        ax.plot(h2,hu2,'--b', label='Integral curve (unphysical)')
 
     h_r = states[0,right]
     h1 = np.linspace(1.e-2,h_r)
     h2 = np.linspace(h_r,xmax+0.5*dx)
-    if wave_types[1] == ‘shock’:
+    if wave_types[1] == 'shock':
         hu1 = hugoniot_locus(h1, states[0,right], states[1,right], wave_family=2, g=g, y_axis=y_axis)
         hu2 = hugoniot_locus(h2, states[0,right], states[1,right], wave_family=2, g=g, y_axis=y_axis)
-        ax.plot(h1,hu1,’—r’, label=‘Hugoniot locus (unphysical)’)
-        ax.plot(h2,hu2,’r’, label=‘Hugoniot locus (physical)’)
+        ax.plot(h1,hu1,'--r', label='Hugoniot locus (unphysical)')
+        ax.plot(h2,hu2,'r', label='Hugoniot locus (physical)')
     else:
         hu1 = integral_curve(h1, states[0,right], states[1,right], wave_family=2, g=g, y_axis=y_axis)
         hu2 = integral_curve(h2, states[0,right], states[1,right], wave_family=2, g=g, y_axis=y_axis)
-        ax.plot(h1,hu1,’b’, label=‘Integral curve (physical)’)
-        ax.plot(h2,hu2,’—b’, label=‘Integral curve (unphysical)’)
+        ax.plot(h1,hu1,'b', label='Integral curve (physical)')
+        ax.plot(h2,hu2,'--b', label='Integral curve (unphysical)')
 
 
     msize = 6
-    Lp = ax.plot(x[0],y[0],’<k’,markersize=msize,label=‘Left’)
-    Mp = ax.plot(x[1],y[1],’ok’,markersize=msize,label=‘Middle’)
-    Rp = ax.plot(x[-1],y[-1],’>k’,markersize=msize,label=‘Right’)
+    Lp = ax.plot(x[0],y[0],'<k',markersize=msize,label='Left')
+    Mp = ax.plot(x[1],y[1],'ok',markersize=msize,label='Middle')
+    Rp = ax.plot(x[-1],y[-1],'>k',markersize=msize,label='Right')
         
     # add legends only for Left, Middle, Right:
     handles = []
-    handle = mlines.Line2D([], [], color=‘k’, linestyle=‘’, marker=‘<‘,
-                            markersize=msize, label=‘Left state’)
+    handle = mlines.Line2D([], [], color='k', linestyle='', marker='<',
+                            markersize=msize, label='Left state')
     handles.append(handle)
-    handle = mlines.Line2D([], [], color=‘k’, linestyle=‘’, marker=‘o’,
-                            markersize=msize, label=‘Middle state’)
+    handle = mlines.Line2D([], [], color='k', linestyle='', marker='o',
+                            markersize=msize, label='Middle state')
     handles.append(handle)
-    handle = mlines.Line2D([], [], color=‘k’, linestyle=‘’, marker=‘>’,
-                            markersize=msize, label=‘Right state’)
+    handle = mlines.Line2D([], [], color='k', linestyle='', marker='>',
+                            markersize=msize, label='Right state')
     handles.append(handle)
     plt.legend(handles=handles, fontsize=6)
 
     if approx_states is not None:
         u = approx_states[1,:]/(approx_states[0,:]+1.e-15)
         h = approx_states[0,:]
-        ax.plot(h,u,’-g’,zorder=0)
-        # don’t plot the left and right states as dots, only middle states:
-        ax.plot(h[1:-1],u[1:-1],’og’,markersize=8,zorder=0)
+        ax.plot(h,u,'-g',zorder=0)
+        # don't plot the left and right states as dots, only middle states:
+        ax.plot(h[1:-1],u[1:-1],'og',markersize=8,zorder=0)
 
     xlimits = ax.get_xlim()
     if xlimits[0] <= 0.:
@@ -426,14 +427,14 @@ def phase_plane_plot(q_l, q_r, g=1., ax=None, force_waves=None, y_axis=‘u’,
         x0 = min(xlimits[0],  -0.05*(xlimits[1] - xlimits[0]))
         ax.set_xlim(x0,xlimits[1])
         ylimits = ax.get_ylim()
-        ax.plot([0,0], ylimits, ‘k-‘, linewidth=0.6)  # y-axis
+        ax.plot([0,0], ylimits, 'k-', linewidth=0.6)  # y-axis
         
     # The code below generates a legend with just one
     # entry for each kind of line/marker, even if
     # multiple plotting calls were made with that type
     # of line/marker.  
     # It avoids making entries for lines/markers that
-    # don’t actually appear on the given plot.
+    # don't actually appear on the given plot.
     # It also alphabetizes the entries.
     handles, labels = ax.get_legend_handles_labels()
     i = np.arange(len(labels))
@@ -448,29 +449,29 @@ def phase_plane_plot(q_l, q_r, g=1., ax=None, force_waves=None, y_axis=‘u’,
     labels = [labels[i] for i in order]
     #ax.legend(handles,labels)
 
-def plot_hugoniot_loci(plot_1=True,plot_2=False,y_axis=‘hu’):
+def plot_hugoniot_loci(plot_1=True,plot_2=False,y_axis='hu'):
     h = np.linspace(0.001,3,100)
     hstar = 1.0
-    legend = plot_1*[‘1-loci’] + plot_2*[‘2-loci’]
+    legend = plot_1*['1-loci'] + plot_2*['2-loci']
     for hustar in np.linspace(-4,4,15):
         if plot_1:
             hu = hugoniot_locus(h,hstar,hustar,wave_family=1,y_axis=y_axis)
-            plt.plot(h,hu,’-‘,color=‘coral’)
+            plt.plot(h,hu,'-',color='coral')
         if plot_2:
             hu = hugoniot_locus(h,hstar,hustar,wave_family=2,y_axis=y_axis)
-            plt.plot(h,hu,’-‘,color=‘maroon’)
+            plt.plot(h,hu,'-',color='maroon')
         plt.axis((0,3,-3,3))
-        plt.xlabel(‘depth h’)
-        if y_axis==‘hu’:
-            plt.ylabel(‘momentum hu’)
+        plt.xlabel('depth h')
+        if y_axis=='hu':
+            plt.ylabel('momentum hu')
         else:
-            plt.ylabel(‘velocity u’)
-        plt.title(‘Hugoniot loci’)
+            plt.ylabel('velocity u')
+        plt.title('Hugoniot loci')
         plt.legend(legend,loc=1)
     plt.show()
 
 def lambda_1(q, _, g=1.):
-    “Characteristic speed for shallow water 1-waves.”
+    "Characteristic speed for shallow water 1-waves."
     h, hu = q
     if h > 0:
         u = hu/h
@@ -479,7 +480,7 @@ def lambda_1(q, _, g=1.):
         return 0
 
 def lambda_2(q, _, g=1.):
-    “Characteristic speed for shallow water 2-waves.”
+    "Characteristic speed for shallow water 2-waves."
     h, hu = q
     if h > 0:
         u = hu/h
@@ -560,15 +561,15 @@ def make_demo_plot_function(h_l=3., h_r=1., u_l=0., u_r=0,
         for i in range(num_vars):
             axes[i] = fig.add_subplot(1,num_vars,i+1)
             q = primitive[i]
-            plt.plot(x,q,’-k’,linewidth=3)
+            plt.plot(x,q,'-k',linewidth=3)
             plt.title(primitive_variables[i])
             if t != 0:
-                plt.suptitle(‘Solution at time $t=‘+str(t)+’$’,fontsize=12)
+                plt.suptitle('Solution at time $t='+str(t)+'$',fontsize=12)
             else:
-                plt.suptitle(‘Initial data’,fontsize=12)
+                plt.suptitle('Initial data',fontsize=12)
             axes[i].set_xlim(-1,1)
 
-            if i==0 and force_waves != ‘raref’:
+            if i==0 and force_waves != 'raref':
                 # plot stripes only on depth plot
                 # (and suppress if nonphysical solution plotted)
                 n = np.where(t > t_traj)[0]
@@ -593,18 +594,18 @@ def make_demo_plot_function(h_l=3., h_r=1., u_l=0., u_r=0,
                     if x_traj[0,j]<0:
                         # shades of blue for fluid starting from x<0
                         if np.mod(j,2)==0:
-                            c = ‘dodgerblue’
+                            c = 'dodgerblue'
                             alpha = 1.0
                         else:
-                            c = ‘lightblue’
+                            c = 'lightblue'
                             alpha = 1.0
                     else:
                         # shades of blue for fluid starting from x<0
                         if np.mod(j,2)==0:
-                            c = ‘blue’
+                            c = 'blue'
                             alpha = 1.0
                         else:
-                            c = ‘cornflowerblue’
+                            c = 'cornflowerblue'
                             alpha = 1.0
                     plt.fill_between(x[j1:j2],q[j1:j2],0,color=c,alpha=alpha)
 
@@ -615,11 +616,11 @@ def make_demo_plot_function(h_l=3., h_r=1., u_l=0., u_r=0,
 
     return plot_shallow_water_demo
 
-def macro_riemann_plot(which,context=‘notebook’,figsize=(10,3)):
-    “””
+def macro_riemann_plot(which,context='notebook',figsize=(10,3)):
+    """
     Some simulations to show that the Riemann solution describes macroscopic behavior
     in the Cauchy problem.
-    “””
+    """
     from IPython.display import HTML
     from clawpack import pyclaw
     from matplotlib import animation
@@ -634,11 +635,11 @@ def macro_riemann_plot(which,context=‘notebook’,figsize=(10,3)):
     solver.num_waves = 3
     solver.bc_lower[0] = pyclaw.BC.wall
     solver.bc_upper[0] = pyclaw.BC.wall
-    x = pyclaw.Dimension(-1.0,1.0,2000,name=‘x’)
+    x = pyclaw.Dimension(-1.0,1.0,2000,name='x')
     domain = pyclaw.Domain(x)
     state = pyclaw.State(domain,solver.num_eqn)
 
-    state.problem_data[‘grav’] = 1.0
+    state.problem_data['grav'] = 1.0
 
     grid = state.grid
     xc = grid.p_centers[0]
@@ -651,10 +652,10 @@ def macro_riemann_plot(which,context=‘notebook’,figsize=(10,3)):
     xs = 0.1
 
     alpha = (xs-xc)/(2.*xs)
-    if which==‘linear’:
+    if which=='linear':
         state.q[depth,:] = hl*(xc<=-xs) + hr*(xc>xs) + (alpha*hl + (1-alpha)*hr)*(xc>-xs)*(xc<=xs)
         state.q[momentum,:] = hl*ul*(xc<=-xs) + hr*ur*(xc>xs) + (alpha*hl*ul + (1-alpha)*hr*ur)*(xc>-xs)*(xc<=xs)
-    elif which==‘oscillatory’:
+    elif which=='oscillatory':
         state.q[depth,:] = hl*(xc<=-xs) + hr*(xc>xs) + (alpha*hl + (1-alpha)*hr+0.2*np.sin(8*np.pi*xc/xs))*(xc>-xs)*(xc<=xs)
         state.q[momentum,:] = hl*ul*(xc<=-xs) + hr*ur*(xc>xs) + (alpha*hl*ul + (1-alpha)*hr*ur+0.2*np.cos(8*np.pi*xc/xs))*(xc>-xs)*(xc<=xs)
 
@@ -683,13 +684,13 @@ def macro_riemann_plot(which,context=‘notebook’,figsize=(10,3)):
 
     x, = frame.state.grid.p_centers
 
-    line, = ax_h.plot(x, surface,’-k’,linewidth=3)
-    line_u, = ax_u.plot(x, u,’-k’,linewidth=3)
+    line, = ax_h.plot(x, surface,'-k',linewidth=3)
+    line_u, = ax_u.plot(x, u,'-k',linewidth=3)
 
-    fills = {‘navy’: None,
-             ‘blue’: None,
-             ‘cornflowerblue’: None,
-             ‘deepskyblue’: None}
+    fills = {'navy': None,
+             'blue': None,
+             'cornflowerblue': None,
+             'deepskyblue': None}
     colors = fills.keys()
 
     def set_stripe_regions(tracer):
@@ -697,10 +698,10 @@ def macro_riemann_plot(which,context=‘notebook’,figsize=(10,3)):
         widthr = 0.3/hr
         # Designate areas for each color of stripe
         stripes = {}
-        stripes[‘navy’] = (tracer>=0)
-        stripes[‘blue’] = (tracer % widthr>=widthr/2.)*(tracer>=0)
-        stripes[‘cornflowerblue’] = (tracer<=0)
-        stripes[‘deepskyblue’] = (tracer % widthl>=widthl/2.)*(tracer<=0)
+        stripes['navy'] = (tracer>=0)
+        stripes['blue'] = (tracer % widthr>=widthr/2.)*(tracer>=0)
+        stripes['cornflowerblue'] = (tracer<=0)
+        stripes['deepskyblue'] = (tracer % widthl>=widthl/2.)*(tracer<=0)
         return stripes
 
     stripes = set_stripe_regions(tracer)
@@ -708,13 +709,13 @@ def macro_riemann_plot(which,context=‘notebook’,figsize=(10,3)):
     for color in colors:
         fills[color] = ax_h.fill_between(x,b,surface,facecolor=color,where=stripes[color],alpha=0.5)
 
-    ax_h.set_xlabel(‘$x$’); ax_u.set_xlabel(‘$x$’)
+    ax_h.set_xlabel('$x$'); ax_u.set_xlabel('$x$')
     ax_h.set_xlim(-1,1); ax_h.set_ylim(0,3.5)
     ax_u.set_xlim(-1,1); ax_u.set_ylim(-1,1)
-    ax_u.set_title(‘Velocity’); ax_h.set_title(‘Depth’)
+    ax_u.set_title('Velocity'); ax_h.set_title('Depth')
 
     def fplot(frame_number):
-        fig.suptitle(‘Solution at time $t=‘+str(frame_number/10.)+’$’,fontsize=12)
+        fig.suptitle('Solution at time $t='+str(frame_number/10.)+'$',fontsize=12)
         # Remove old fill_between plots
         for color in colors:
             fills[color].remove()
@@ -732,7 +733,7 @@ def macro_riemann_plot(which,context=‘notebook’,figsize=(10,3)):
             fills[color] = ax_h.fill_between(x,b,surface,facecolor=color,where=stripes[color],alpha=0.5)
         return line,
 
-    if context in [‘notebook’,’html’]:
+    if context in ['notebook','html']:
         anim = animation.FuncAnimation(fig, fplot, frames=len(claw.frames), interval=200, repeat=False)
         plt.close()
         return HTML(anim.to_jshtml())
@@ -761,7 +762,7 @@ def make_plot_functions(h_l, h_r, u_l, u_r,
         plt.figure(figsize=(7,2))
         ax = plt.subplot(121)
         riemann_tools.plot_waves(states, speeds, reval, wave_types, t=0,
-                                 ax=ax, color=‘multi’)
+                                 ax=ax, color='multi')
         if plot_1_chars:
             riemann_tools.plot_characteristics(reval,lambda_1,
                                                axes=ax,extra_lines=extra_lines)
@@ -773,9 +774,9 @@ def make_plot_functions(h_l, h_r, u_l, u_r,
                                                axes=ax,extra_lines=extra_lines)
         ax = plt.subplot(122)
         phase_plane_plot(q_l,q_r,g,ax=ax,
-                                       force_waves=force_waves,y_axis=‘u’,
+                                       force_waves=force_waves,y_axis='u',
                                        include_contact=include_contact)
-        plt.title(‘Phase plane’)
+        plt.title('Phase plane')
         plt.show()
     return plot_function_stripes, plot_function_xt_phase
 
@@ -791,23 +792,23 @@ def plot_riemann_SW(h_l,h_r,u_l,u_r,g=1.,force_waves=None,extra_lines=None,
              t=widgets.FloatSlider(value=0.,min=0,max=.5), fig=fixed(0))
     if tracer:
         interact(plot_function_xt_phase, 
-                 plot_1_chars=Checkbox(description=‘1-characteristics’,
+                 plot_1_chars=Checkbox(description='1-characteristics',
                                        value=plot1),
-                 plot_2_chars=Checkbox(description=‘2-characteristics’,
+                 plot_2_chars=Checkbox(description='2-characteristics',
                                        value=plot2),
-                 plot_tracer_chars=Checkbox(description=‘Tracer characteristics’))
+                 plot_tracer_chars=Checkbox(description='Tracer characteristics'))
     elif particle_paths:
     
         interact(plot_function_xt_phase, 
-                 plot_1_chars=Checkbox(description=‘1-characteristics’,
+                 plot_1_chars=Checkbox(description='1-characteristics',
                                        value=plot1),
-                 plot_2_chars=Checkbox(description=‘2-characteristics’,
+                 plot_2_chars=Checkbox(description='2-characteristics',
                                        value=plot2),
-                 plot_tracer_chars=Checkbox(description=‘Particle paths’))
+                 plot_tracer_chars=Checkbox(description='Particle paths'))
     else:
         interact(plot_function_xt_phase, 
-                 plot_1_chars=Checkbox(description=‘1-characteristics’,
+                 plot_1_chars=Checkbox(description='1-characteristics',
                                        value=plot1),
-                 plot_2_chars=Checkbox(description=‘2-characteristics’,
+                 plot_2_chars=Checkbox(description='2-characteristics',
                                        value=plot2),
                  plot_tracer_chars=fixed(value=False))  # suppress checkbox
